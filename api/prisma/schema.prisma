@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ActionType {
+  DONATE
+  VOLUNTEER
+  CHEER
+  SHARE
+}
+
+enum OrgCategory {
+  ENVIRONMENT
+  HEALTH
+  EDUCATION
+  POVERTY
+  ANIMALS
+  DISASTER_RELIEF
+  COMMUNITY
+}
+
+enum RippleStatus {
+  ACTIVE
+  COMPLETED
+  EXPIRED
+}
+
+enum ReactionType {
+  CHEER
+  MATCH
+}
+
+model User {
+  id             String    @id @default(cuid())
+  googleId       String    @unique
+  name           String
+  avatar         String?
+  bio            String?
+  isPublic       Boolean   @default(true)
+  streak         Int       @default(0)
+  longestStreak  Int       @default(0)
+  lastActionDate DateTime?
+  totalGiven     Float     @default(0)
+  totalActions   Int       @default(0)
+  joinedAt       DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  actions         Action[]
+  ripplesStarted  Ripple[]         @relation("RippleStarter")
+  followers       Follow[]         @relation("Following")
+  following       Follow[]         @relation("Follower")
+  reactions       Reaction[]
+}
+
+model Organization {
+  id                    String      @id @default(cuid())
+  ein                   String?     @unique
+  name                  String
+  slug                  String      @unique
+  mission               String?
+  description           String?     @db.Text
+  category              OrgCategory
+  charityNavigatorRating Float?
+  starRating            Int?
+  percentToPrograms     Float?
+  donateUrl             String?
+  volunteerUrl          String?
+  websiteUrl            String?
+  imageUrl              String?
+  coverImageUrl         String?
+  totalRaised           Float       @default(0)
+  totalDonors           Int         @default(0)
+  totalVolunteers       Int         @default(0)
+  weeklyDonations       Float       @default(0)
+  weeklyDonors          Int         @default(0)
+  trending              Boolean     @default(false)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  actions Action[]
+  ripples Ripple[]
+}
+
+model Action {
+  id        String     @id @default(cuid())
+  userId    String
+  orgId     String
+  type      ActionType
+  amount    Float?
+  comment   String?
+  isPublic  Boolean    @default(true)
+  rippleId  String?
+  createdAt DateTime   @default(now())
+
+  user      User         @relation(fields: [userId], references: [id])
+  org       Organization @relation(fields: [orgId], references: [id])
+  ripple    Ripple?      @relation(fields: [rippleId], references: [id])
+  reactions Reaction[]
+}
+
+model Ripple {
+  id               String       @id @default(cuid())
+  startedByUserId  String
+  orgId            String
+  title            String
+  description      String?
+  targetAmount     Float?
+  currentAmount    Float        @default(0)
+  participantCount Int          @default(0)
+  status           RippleStatus @default(ACTIVE)
+  expiresAt        DateTime?
+  createdAt        DateTime     @default(now())
+
+  startedBy User         @relation("RippleStarter", fields: [startedByUserId], references: [id])
+  org       Organization @relation(fields: [orgId], references: [id])
+  actions   Action[]
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("Follower", fields: [followerId], references: [id])
+  following User @relation("Following", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+}
+
+model Reaction {
+  id        String       @id @default(cuid())
+  actionId  String
+  userId    String
+  type      ReactionType
+  createdAt DateTime     @default(now())
+
+  action Action @relation(fields: [actionId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([actionId, userId, type])
+}
